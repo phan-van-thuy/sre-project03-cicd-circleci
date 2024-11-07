@@ -99,13 +99,13 @@ jobs:
       - image: amazon/aws-cli
     steps:
       - checkout
-      - attach_workspace:
-          at: /workspace
       - run:
           name: Install tar utility
           command: |
             yum install -y unzip tar gzip curl git
-            
+      - attach_workspace:
+          at: /workspace
+
       - run:
           name: Install kubectl and eksctl
           command: |
