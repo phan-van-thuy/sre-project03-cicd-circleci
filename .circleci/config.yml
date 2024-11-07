@@ -1,0 +1,178 @@
+version: 2.1
+
+commands:
+  print_pipeline_id:
+    parameters:
+      id: 
+        type: string
+    steps:
+      - run: |
+          echo "Distroy environment: ${CIRCLE_WORKFLOW_ID:0:7}"
+
+  destroy-environment:
+    description: Destroy backend and frontend cloudformation stacks given a workflow ID.
+    steps:
+      - run:
+          name: Destroy environment
+          when: on_fail
+          command: |
+            echo "Distroy environment: ${CIRCLE_WORKFLOW_ID:0:7} "
+            eksctl delete iamserviceaccount --name cluster-autoscaler --namespace kube-system --cluster udacity-cluster --region us-east-2
+            cd starter/infra
+            terraform destroy -var="bucket_name=${TF_BUCKET}" -auto-approve
+  # Exercise - Rollback
+  destroy-bucket:
+    description: Destroy Bucket.
+    steps:
+      - run:
+          name: Destroy environment
+          when: on_fail
+          command: |
+            echo "Distroy environment: ${CIRCLE_WORKFLOW_ID:0:7} "
+            aws s3 rm "s3://udacity-tf-tscotto-us-east" --recursive
+jobs:
+  build-s3:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run:
+          name: Create S3 Bucket
+          command: |
+            BUCKET_NAME="udacity-tf-tscotto-us-east"
+
+            if aws s3api head-bucket --bucket "$BUCKET_NAME" 2>/dev/null; then
+              echo "Bucket $BUCKET_NAME already exists."
+            else
+              aws s3api create-bucket --bucket udacity-tf-tscotto-us-east  --create-bucket-configuration LocationConstraint=us-east-2
+            fi
+      - destroy-bucket
+
+  deploy-infrastructure:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run:
+          name: Install AWS CLI
+          command: |
+            yum install -y unzip tar curl gzip git
+            curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/v0.143.0/eksctl_Linux_amd64.tar.gz" | tar xz -C /tmp
+            mv /tmp/eksctl /usr/local/bin/eksctl
+            curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+            unzip terraform_1.5.7_linux_amd64.zip
+            mv terraform /usr/local/bin/
+            rm terraform_1.5.7_linux_amd64.zip
+
+      - run:
+          name: Set Bucket Environment Variable
+          command: |
+            # Tạo tên bucket với 7 ký tự đầu của CIRCLE_WORKFLOW_ID
+            export TF_BUCKET="udacity-tf-tscotto-us-east"
+            echo "TF_BUCKET=$TF_BUCKET" >> $BASH_ENV
+      - run:
+          name: Terraform Init
+          command: |
+            cd starter/infra
+            terraform init -backend-config="bucket=${TF_BUCKET}"
+      - run:
+          name: Terraform Plan and Apply
+          command: |
+            ls -l
+            cd starter/infra
+            terraform apply -var="bucket_name=${TF_BUCKET}" -auto-approve
+
+      - run:
+          name: Configure AWS CLI and Update Kubeconfig
+          command: |
+            mkdir -p /tmp/kubeconfig
+            aws eks update-kubeconfig --name udacity-cluster --region us-east-2 --kubeconfig /tmp/kubeconfig/config
+      - persist_to_workspace:
+          root: /tmp
+          paths:
+            - kubeconfig/config
+
+      - destroy-environment
+#      - destroy-bucket
+  config-infrastructure:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /workspace
+      - run:
+          name: Install kubectl and eksctl
+          command: |
+            # Cài đặt kubectl
+            yum install -y unzip tar curl gzip git
+            curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/v0.143.0/eksctl_Linux_amd64.tar.gz" | tar xz -C /tmp
+            mv /tmp/eksctl /usr/local/bin/eksctl
+            curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+            chmod +x ./kubectl
+            mv ./kubectl /usr/local/bin/kubectl
+
+      - run:
+          name: Verify installation
+          command: |
+            kubectl version --client
+            eksctl version
+
+      - run:
+          name: Update K8s Cluster And Scale
+          command: |
+            export KUBECONFIG=/workspace/kubeconfig/config
+            aws eks --region us-east-2 update-kubeconfig --name udacity-cluster
+            ID_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+            kubectl config use-context arn:aws:eks:us-east-2:${ID_ACCOUNT}:cluster/udacity-cluster
+            eksctl create iamserviceaccount --name cluster-autoscaler --namespace kube-system --cluster udacity-cluster --attach-policy-arn "arn:aws:iam::${ID_ACCOUNT}:policy/udacity-k8s-autoscale" --approve --region us-east-2
+            kubectl apply -f starter/infra/cluster_autoscale.yml
+      - destroy-environment
+  deploy-app:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /workspace
+      - run:
+          name: Install kubectl and eksctl
+          command: |
+            yum install -y unzip tar curl gzip git
+            curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/v0.143.0/eksctl_Linux_amd64.tar.gz" | tar xz -C /tmp
+            mv /tmp/eksctl /usr/local/bin/eksctl
+            curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+            chmod +x ./kubectl
+            mv ./kubectl /usr/local/bin/kubectl
+
+
+      - run:
+          name: Verify installation
+          command: |
+            kubectl version --client
+            eksctl version
+
+      - run:
+          name: Set Kubeconfig and Deploy App
+          command: |
+            export KUBECONFIG=/workspace/kubeconfig/config
+            kubectl get nodes
+            cd starter/apps
+            kubectl apply -f bloatware/ -f blue-green/ -f canary/ -f hello-world/
+
+      - destroy-environment
+        
+workflows:
+  default:
+    jobs:
+      - build-s3
+      - deploy-infrastructure:
+          requires: [build-s3]
+      - config-infrastructure:
+          requires: [build-s3, deploy-infrastructure]
+      - deploy-app:
+          requires: [build-s3, deploy-infrastructure, config-infrastructure]
+          # filters:
+          #   branches:
+          #     only: 
+          #       - master
