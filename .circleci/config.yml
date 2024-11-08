@@ -76,9 +76,9 @@ jobs:
           command: |
             COMMIT_MSG="$(git log -1 --pretty=%B)"
             if echo "$COMMIT_MSG" | grep -iq "destroy"; then
-              echo "export DESTROY_FLAG=true" >> flag.txt
+              echo "export DESTROY_FLAG=true" >> /tmp/flag.txt
             else
-              echo "export DESTROY_FLAG=false" >> flag.txt
+              echo "export DESTROY_FLAG=false" >> /tmp/flag.txt
             fi
       - persist_to_workspace:
           root: /tmp
