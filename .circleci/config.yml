@@ -21,6 +21,7 @@ commands:
             echo "TF_BUCKET=$TF_BUCKET" >> $BASH_ENV
             eksctl delete iamserviceaccount --name cluster-autoscaler --namespace kube-system --cluster udacity-cluster --region us-east-2
             cd starter/infra
+            terraform init -backend-config="bucket=${TF_BUCKET}" -migrate-state
             terraform destroy -var="bucket_name=${TF_BUCKET}" -auto-approve
   # Exercise - Rollback
   destroy-bucket:
