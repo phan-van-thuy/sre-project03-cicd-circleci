@@ -70,11 +70,12 @@ jobs:
       - run:
           name: Check for Destroy Keyword in Commit Message
           command: |
-            COMMIT_MSG=$(git log -1 --pretty=%B)
+            COMMIT_MSG="$(git log -1 --pretty=%B)"
             if echo "$COMMIT_MSG" | grep -iq "destroy"; then
               echo "export DESTROY_FLAG=true" >> $BASH_ENV
             else
               echo "export DESTROY_FLAG=false" >> $BASH_ENV
+
   destroy-infrastructure:
     docker:
       - image: amazon/aws-cli
