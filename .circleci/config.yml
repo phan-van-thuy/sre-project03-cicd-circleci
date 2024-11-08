@@ -64,7 +64,7 @@ commands:
 jobs:
   check-destroy-flag:
     docker:
-      - image: circleci/python:3.8
+      - image: amazon/aws-cli
     steps:
       - checkout
       - run:
