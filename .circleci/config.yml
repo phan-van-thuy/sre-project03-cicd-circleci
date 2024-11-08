@@ -96,24 +96,41 @@ jobs:
       - run:
           name: Destroy Infrastructure
           command: |
-            export TF_BUCKET="udacity-tf-tscotto-us-east"
-            echo "TF_BUCKET=$TF_BUCKET" >> $BASH_ENV
+            source $BASH_ENV
+            if [ "$DESTROY_FLAG" = "true" ]; then
+              export TF_BUCKET="udacity-tf-tscotto-us-east"
+              eksctl delete iamserviceaccount --name cluster-autoscaler --namespace kube-system --cluster udacity-cluster --region us-east-2
+              cd starter/infra
+              terraform init -backend-config="bucket=${TF_BUCKET}" -migrate-state
+              if terraform destroy -var="bucket_name=${TF_BUCKET}" -auto-approve; then
+                  echo "Terraform destroy completed successfully."
+                  echo "Destroy S3 Bucket ..."
+                  aws s3 rm "s3://${TF_BUCKET}" --recursive
+                  echo "Destroy S3 Bucket successfully"
+                else
+                  echo "Terraform destroy S3 failed."
+                fi
+            else
+              echo "Destroy flag not set, skipping destroy."
+            fi
+            # export TF_BUCKET="udacity-tf-tscotto-us-east"
+            # echo "TF_BUCKET=$TF_BUCKET" >> $BASH_ENV
 
-            # Delete IAM service account
-            eksctl delete iamserviceaccount --name cluster-autoscaler --namespace kube-system --cluster udacity-cluster --region us-east-2
+            # # Delete IAM service account
+            # eksctl delete iamserviceaccount --name cluster-autoscaler --namespace kube-system --cluster udacity-cluster --region us-east-2
 
-            # Initialize Terraform and destroy resources
-            cd starter/infra
-            terraform init -backend-config="bucket=${TF_BUCKET}" -migrate-state
+            # # Initialize Terraform and destroy resources
+            # cd starter/infra
+            # terraform init -backend-config="bucket=${TF_BUCKET}" -migrate-state
 
-            if terraform destroy -var="bucket_name=${TF_BUCKET}" -auto-approve; then
-                echo "Terraform destroy completed successfully."
-                echo "Destroy S3 Bucket ..."
-                aws s3 rm "s3://${TF_BUCKET}" --recursive
-                echo "Destroy S3 Bucket successfully"
-              else
-                echo "Terraform destroy S3 failed."
-              fi
+            # if terraform destroy -var="bucket_name=${TF_BUCKET}" -auto-approve; then
+            #     echo "Terraform destroy completed successfully."
+            #     echo "Destroy S3 Bucket ..."
+            #     aws s3 rm "s3://${TF_BUCKET}" --recursive
+            #     echo "Destroy S3 Bucket successfully"
+            #   else
+            #     echo "Terraform destroy S3 failed."
+            #   fi
 
 
   build-s3:
