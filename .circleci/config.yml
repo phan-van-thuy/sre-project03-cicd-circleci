@@ -1,5 +1,13 @@
 version: 2.1
 
+parameters:
+  should_destroy:
+    type: boolean
+    default: false
+  should_not_destroy:
+    type: boolean
+    default: true
+
 commands:
   print_pipeline_id:
     parameters:
@@ -240,6 +248,7 @@ jobs:
             cd starter/apps
             kubectl apply -f  bloatware/ -f blue-green/ -f canary/ -f hello-world/ #(Set # do destroy Infras)
 
+            
       - destroy-infas
       - destroy-bucket
 workflows:
@@ -252,16 +261,16 @@ workflows:
           filters:
             branches:
               ignore: /.*/
-          when: << pipeline.parameters.should_destroy >>
+          when: << parameters.should_destroy >>
       - build-s3:
           requires: [check-destroy-flag]
-          when: << pipeline.parameters.should_not_destroy >>
+          when: << parameters.should_not_destroy >>
       - deploy-infrastructure:
           requires: [check-destroy-flag, build-s3]
-          when: << pipeline.parameters.should_not_destroy >>
+          when: << parameters.should_not_destroy >>
       - config-infrastructure:
           requires: [check-destroy-flag, build-s3, deploy-infrastructure]
-          when: << pipeline.parameters.should_not_destroy >>
+          when: << parameters.should_not_destroy >>
       - deploy-app:
           requires: [check-destroy-flag, build-s3, deploy-infrastructure, config-infrastructure]
-          when: << pipeline.parameters.should_not_destroy >>
+          when: << parameters.should_not_destroy >>
