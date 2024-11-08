@@ -131,7 +131,8 @@ jobs:
             #   else
             #     echo "Terraform destroy S3 failed."
             #   fi
-
+    when:
+      condition: << parameters.should_destroy >>
 
   build-s3:
     docker:
@@ -280,19 +281,12 @@ jobs:
       - destroy-bucket
 workflows:
   default:
-    parameters:
-      should_destroy:
-        type: boolean
-        default: false
-      should_not_destroy:
-        type: boolean
-        default: true
     jobs:
       - check-destroy-flag
       - destroy-infrastructure:
           requires:
             - check-destroy-flag
-#          when: << pipeline.parameters.should_destroy >>
+          when: << pipeline.parameters.should_destroy >>
       - build-s3:
           requires: [check-destroy-flag]
           when: << pipeline.parameters.should_not_destroy >>
