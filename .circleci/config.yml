@@ -68,7 +68,7 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install AWS CLI git
+          name: Install AWS CLI and git
           command: |
             yum install -y unzip tar curl gzip git
       - run:
@@ -87,43 +87,99 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Install AWS CLI
+          name: Install AWS CLI and tools
           command: |
             yum install -y unzip tar curl gzip git
-      - when:
-          condition:
-            equal: [ "true", << pipeline.environment.DESTROY_FLAG >> ]
-          steps:
-            - run:
-                name: Install AWS CLI
-                command: |
-                  yum install -y unzip tar curl gzip git
-                  curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/v0.143.0/eksctl_Linux_amd64.tar.gz" | tar xz -C /tmp
-                  mv /tmp/eksctl /usr/local/bin/eksctl
-                  curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
-                  unzip terraform_1.5.7_linux_amd64.zip
-                  mv terraform /usr/local/bin/
-                  rm terraform_1.5.7_linux_amd64.zip
-            - run:
-                name: Destroy Infrastructure
-                command: |
-                  source $BASH_ENV
-                  if [ "$DESTROY_FLAG" = "true" ]; then
-                    export TF_BUCKET="udacity-tf-tscotto-us-east"
-                    eksctl delete iamserviceaccount --name cluster-autoscaler --namespace kube-system --cluster udacity-cluster --region us-east-2
-                    cd starter/infra
-                    terraform init -backend-config="bucket=${TF_BUCKET}" -migrate-state
-                    if terraform destroy -var="bucket_name=${TF_BUCKET}" -auto-approve; then
-                        echo "Terraform destroy completed successfully."
-                        echo "Destroy S3 Bucket ..."
-                        aws s3 rm "s3://${TF_BUCKET}" --recursive
-                        echo "Destroy S3 Bucket successfully"
-                      else
-                        echo "Terraform destroy S3 failed."
-                      fi
-                  else
-                    echo "Destroy flag not set, skipping destroy."
-                  fi
+            curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/v0.143.0/eksctl_Linux_amd64.tar.gz" | tar xz -C /tmp
+            mv /tmp/eksctl /usr/local/bin/eksctl
+            curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+            unzip terraform_1.5.7_linux_amd64.zip
+            mv terraform /usr/local/bin/
+            rm terraform_1.5.7_linux_amd64.zip
+      - run:
+          name: Destroy Infrastructure if flag is true
+          command: |
+            source $BASH_ENV
+            if [ "$DESTROY_FLAG" = "true" ]; then
+              export TF_BUCKET="udacity-tf-tscotto-us-east"
+              eksctl delete iamserviceaccount --name cluster-autoscaler --namespace kube-system --cluster udacity-cluster --region us-east-2
+              cd starter/infra
+              terraform init -backend-config="bucket=${TF_BUCKET}" -migrate-state
+              if terraform destroy -var="bucket_name=${TF_BUCKET}" -auto-approve; then
+                  echo "Terraform destroy completed successfully."
+                  echo "Destroy S3 Bucket ..."
+                  aws s3 rm "s3://${TF_BUCKET}" --recursive
+                  echo "Destroy S3 Bucket successfully"
+                else
+                  echo "Terraform destroy S3 failed."
+                fi
+            else
+              echo "Destroy flag not set, skipping destroy."
+            fi
+
+# jobs:
+#   check-destroy-flag:
+#     docker:
+#       - image: amazon/aws-cli
+#     steps:
+#       - checkout
+#       - run:
+#           name: Install AWS CLI git
+#           command: |
+#             yum install -y unzip tar curl gzip git
+#       - run:
+#           name: Check for "Destroy" Keyword in Commit Message
+#           command: |
+#             COMMIT_MSG="$(git log -1 --pretty=%B)"
+#             if echo "$COMMIT_MSG" | grep -iq "destroy"; then
+#               echo "export DESTROY_FLAG=true" >> $BASH_ENV
+#             else
+#               echo "export DESTROY_FLAG=false" >> $BASH_ENV
+#             fi
+
+#   destroy-infrastructure:
+#     docker:
+#       - image: amazon/aws-cli
+#     steps:
+#       - checkout
+#       - run:
+#           name: Install AWS CLI
+#           command: |
+#             yum install -y unzip tar curl gzip git
+#       - when:
+#           condition:
+#             equal: [ "true", << pipeline.environment.DESTROY_FLAG >> ]
+#           steps:
+#             - run:
+#                 name: Install AWS CLI
+#                 command: |
+#                   yum install -y unzip tar curl gzip git
+#                   curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/v0.143.0/eksctl_Linux_amd64.tar.gz" | tar xz -C /tmp
+#                   mv /tmp/eksctl /usr/local/bin/eksctl
+#                   curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+#                   unzip terraform_1.5.7_linux_amd64.zip
+#                   mv terraform /usr/local/bin/
+#                   rm terraform_1.5.7_linux_amd64.zip
+#             - run:
+#                 name: Destroy Infrastructure
+#                 command: |
+#                   source $BASH_ENV
+#                   if [ "$DESTROY_FLAG" = "true" ]; then
+#                     export TF_BUCKET="udacity-tf-tscotto-us-east"
+#                     eksctl delete iamserviceaccount --name cluster-autoscaler --namespace kube-system --cluster udacity-cluster --region us-east-2
+#                     cd starter/infra
+#                     terraform init -backend-config="bucket=${TF_BUCKET}" -migrate-state
+#                     if terraform destroy -var="bucket_name=${TF_BUCKET}" -auto-approve; then
+#                         echo "Terraform destroy completed successfully."
+#                         echo "Destroy S3 Bucket ..."
+#                         aws s3 rm "s3://${TF_BUCKET}" --recursive
+#                         echo "Destroy S3 Bucket successfully"
+#                       else
+#                         echo "Terraform destroy S3 failed."
+#                       fi
+#                   else
+#                     echo "Destroy flag not set, skipping destroy."
+#                   fi
 
 
 
