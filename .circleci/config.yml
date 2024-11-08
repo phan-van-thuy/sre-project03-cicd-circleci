@@ -103,9 +103,6 @@ jobs:
           name: Install tar utility
           command: |
             yum install -y unzip tar gzip curl git
-      - attach_workspace:
-          at: /workspace
-
       - run:
           name: Install kubectl and eksctl
           command: |
@@ -114,6 +111,8 @@ jobs:
             curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
             chmod +x ./kubectl
             mv ./kubectl /usr/local/bin/kubectl
+      - attach_workspace:
+          at: /workspace
 
       - run:
           name: Verify installation
@@ -137,19 +136,20 @@ jobs:
       - image: amazon/aws-cli
     steps:
       - checkout
-      - attach_workspace:
-          at: /workspace
+      - run:
+          name: Install tar utility
+          command: |
+            yum install -y unzip tar gzip curl git
       - run:
           name: Install kubectl and eksctl
           command: |
-            yum install -y unzip tar curl gzip git
             curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/v0.143.0/eksctl_Linux_amd64.tar.gz" | tar xz -C /tmp
             mv /tmp/eksctl /usr/local/bin/eksctl
             curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
             chmod +x ./kubectl
             mv ./kubectl /usr/local/bin/kubectl
-
-
+      - attach_workspace:
+          at: /workspace
       - run:
           name: Verify installation
           command: |
