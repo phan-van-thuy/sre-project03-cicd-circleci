@@ -28,8 +28,13 @@ commands:
           name: Destroy environment
           when: on_fail
           command: |
-            echo "Distroy environment: ${CIRCLE_WORKFLOW_ID:0:7} "
-            aws s3 rm "s3://udacity-tf-tscotto-us-east" --recursive
+            if terraform destroy -var="bucket_name=${TF_BUCKET}" -auto-approve; then
+              echo "Distroy S3 "bucket_name=${TF_BUCKET}" "
+              aws s3 rm "s3://udacity-tf-tscotto-us-east" --recursive
+              echo "Starting Destroy Bucket..."
+            else 
+              echo "Failed to destroy destroy-infas, skipping bucket"
+            fi
 jobs:
   build-s3:
     docker:
@@ -93,7 +98,7 @@ jobs:
             - kubeconfig/config
 
       - destroy-environment
-#      - destroy-bucket
+      - destroy-bucket
   config-infrastructure:
     docker:
       - image: amazon/aws-cli
@@ -135,6 +140,7 @@ jobs:
             eksctl create iamserviceaccount --name cluster-autoscaler --namespace kube-system --cluster udacity-cluster --attach-policy-arn "arn:aws:iam::${ID_ACCOUNT}:policy/udacity-k8s-autoscale" --approve --region us-east-2
             kubectl apply -f starter/infra/cluster_autoscale.yml
       - destroy-environment
+      - destroy-bucket
   deploy-app:
     docker:
       - image: amazon/aws-cli
