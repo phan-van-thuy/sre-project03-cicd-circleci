@@ -79,6 +79,7 @@ jobs:
               echo "export DESTROY_FLAG=true" >> $BASH_ENV
             else
               echo "export DESTROY_FLAG=false" >> $BASH_ENV
+            fi
 
   destroy-infrastructure:
     docker:
