@@ -103,6 +103,10 @@ jobs:
           name: Install tar utility
           command: |
             yum install -y unzip tar gzip curl git
+            curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+            unzip terraform_1.5.7_linux_amd64.zip
+            mv terraform /usr/local/bin/
+            rm terraform_1.5.7_linux_amd64.zip
       - run:
           name: Install kubectl and eksctl
           command: |
@@ -140,6 +144,10 @@ jobs:
           name: Install tar utility
           command: |
             yum install -y unzip tar gzip curl git
+            curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+            unzip terraform_1.5.7_linux_amd64.zip
+            mv terraform /usr/local/bin/
+            rm terraform_1.5.7_linux_amd64.zip
       - run:
           name: Install kubectl and eksctl
           command: |
@@ -162,10 +170,10 @@ jobs:
             export KUBECONFIG=/workspace/kubeconfig/config
             kubectl get nodes
             cd starter/apps
-            kubectl apply -f #bloatware/ -f blue-green/ -f canary/ -f hello-world/
+            kubectl apply -f  # bloatware/ -f blue-green/ -f canary/ -f hello-world/ (Set # do destroy Infras)
 
       - destroy-environment
-        
+      - destroy-bucket
 workflows:
   default:
     jobs:
