@@ -80,9 +80,19 @@ jobs:
               echo "export DESTROY_FLAG=false" >> $BASH_ENV
   destroy-infrastructure:
     docker:
-      - image: hashicorp/terraform:light
+      - image: amazon/aws-cli
     steps:
       - checkout
+      - run:
+          name: Install AWS CLI
+          command: |
+            yum install -y unzip tar curl gzip git
+            curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/v0.143.0/eksctl_Linux_amd64.tar.gz" | tar xz -C /tmp
+            mv /tmp/eksctl /usr/local/bin/eksctl
+            curl -LO https://releases.hashicorp.com/terraform/1.5.7/terraform_1.5.7_linux_amd64.zip
+            unzip terraform_1.5.7_linux_amd64.zip
+            mv terraform /usr/local/bin/
+            rm terraform_1.5.7_linux_amd64.zip
       - run:
           name: Destroy Infrastructure
           command: |
@@ -248,7 +258,7 @@ jobs:
             cd starter/apps
             kubectl apply -f  bloatware/ -f blue-green/ -f canary/ -f hello-world/ #(Set # do destroy Infras)
 
-            
+
       - destroy-infas
       - destroy-bucket
 workflows:
@@ -261,16 +271,16 @@ workflows:
           filters:
             branches:
               ignore: /.*/
-          when: << parameters.should_destroy >>
+          when: << pipeline.parameters.should_destroy >>
       - build-s3:
           requires: [check-destroy-flag]
-          when: << parameters.should_not_destroy >>
+          when: << pipeline.parameters..should_not_destroy >>
       - deploy-infrastructure:
           requires: [check-destroy-flag, build-s3]
-          when: << parameters.should_not_destroy >>
+          when: << pipeline.parameters..should_not_destroy >>
       - config-infrastructure:
           requires: [check-destroy-flag, build-s3, deploy-infrastructure]
-          when: << parameters.should_not_destroy >>
+          when: << pipeline.parameters..should_not_destroy >>
       - deploy-app:
           requires: [check-destroy-flag, build-s3, deploy-infrastructure, config-infrastructure]
-          when: << parameters.should_not_destroy >>
+          when: << pipeline.parameters..should_not_destroy >>
