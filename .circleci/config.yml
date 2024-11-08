@@ -292,10 +292,7 @@ workflows:
       - destroy-infrastructure:
           requires:
             - check-destroy-flag
-          filters:
-            branches:
-              ignore: /.*/
-          when: << pipeline.parameters.should_destroy >>
+#          when: << pipeline.parameters.should_destroy >>
       - build-s3:
           requires: [check-destroy-flag]
           when: << pipeline.parameters.should_not_destroy >>
