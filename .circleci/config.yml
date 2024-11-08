@@ -131,8 +131,6 @@ jobs:
             #   else
             #     echo "Terraform destroy S3 failed."
             #   fi
-    when:
-      condition: << parameters.should_destroy >>
 
   build-s3:
     docker:
