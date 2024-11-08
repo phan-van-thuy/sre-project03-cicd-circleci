@@ -162,7 +162,7 @@ jobs:
             export KUBECONFIG=/workspace/kubeconfig/config
             kubectl get nodes
             cd starter/apps
-            kubectl apply -f bloatware/ -f blue-green/ -f canary/ -f hello-world/
+            kubectl apply -f #bloatware/ -f blue-green/ -f canary/ -f hello-world/
 
       - destroy-environment
         
