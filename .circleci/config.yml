@@ -68,6 +68,10 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Install AWS CLI git
+          command: |
+            yum install -y unzip tar curl gzip git
+      - run:
           name: Check for Destroy Keyword in Commit Message
           command: |
             COMMIT_MSG="$(git log -1 --pretty=%B)"
