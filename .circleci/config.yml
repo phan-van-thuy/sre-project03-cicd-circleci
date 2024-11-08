@@ -264,23 +264,27 @@ jobs:
       - destroy-infas
       - destroy-bucket
 workflows:
-  check-destroy-flag:
-    jobs:
-      - check-destroy-flag
-  destroy-infrastructure:
-    when:
-      equal: [ true, << pipeline.parameters.should_destroy >> ]
-  # default:
+  # check-destroy-flag:
   #   jobs:
   #     - check-destroy-flag
-  #     - destroy-infrastructure:
-  #         requires:
-  #           - check-destroy-flag
-  #     - build-s3:
-  #         requires: [check-destroy-flag]
-  #     - deploy-infrastructure:
-  #         requires: [check-destroy-flag, build-s3]
-  #     - config-infrastructure:
-  #         requires: [check-destroy-flag, build-s3, deploy-infrastructure]
-  #     - deploy-app:
-  #         requires: [check-destroy-flag, build-s3, deploy-infrastructure, config-infrastructure]
+  # destroy-infrastructure:
+  #   when:
+  #     equal: [ true, << pipeline.parameters.should_destroy >> ]
+  default:
+    jobs:
+      - check-destroy-flag
+      - destroy-infrastructure:
+          requires:
+            - check-destroy-flag
+      - build-s3:
+          requires: [check-destroy-flag]
+          when:
+            or: 
+              - equal: [ true, << pipeline.parameters.should_destroy >> ]
+
+      - deploy-infrastructure:
+          requires: [check-destroy-flag, build-s3]
+      - config-infrastructure:
+          requires: [check-destroy-flag, build-s3, deploy-infrastructure]
+      - deploy-app:
+          requires: [check-destroy-flag, build-s3, deploy-infrastructure, config-infrastructure]
