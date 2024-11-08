@@ -77,7 +77,7 @@ The AWS environment will be built in the `us-east-2` region of AWS
     -   aws eks --region us-east-2 update-kubeconfig --name udacity-cluster
 2. Change the account ID before running the command below:
     -   kubectl config use-context arn:aws:eks:us-east-2:ID-ACCOUNT:cluster/udacity-cluster
-3. Connect to cluster:
+3. Create an IAM OIDC identity provider for your cluster with the following command:
     -   eksctl utils associate-iam-oidc-provider --cluster udacity-cluster --approve --region=us-east-2
 4. Create IAM Role for policy arn:
     -   eksctl create iamserviceaccount --name cluster-autoscaler --namespace kube-system --cluster udacity-cluster --attach-policy-arn "arn:aws:iam::ID-ACCOUNT:policy/udacity-k8s-autoscale" --approve --region us-east-2

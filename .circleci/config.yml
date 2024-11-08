@@ -126,6 +126,7 @@ jobs:
           command: |
             export KUBECONFIG=/workspace/kubeconfig/config
             aws eks --region us-east-2 update-kubeconfig --name udacity-cluster
+            eksctl utils associate-iam-oidc-provider --cluster udacity-cluster --approve --region=us-east-2
             ID_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
             kubectl config use-context arn:aws:eks:us-east-2:${ID_ACCOUNT}:cluster/udacity-cluster
             eksctl create iamserviceaccount --name cluster-autoscaler --namespace kube-system --cluster udacity-cluster --attach-policy-arn "arn:aws:iam::${ID_ACCOUNT}:policy/udacity-k8s-autoscale" --approve --region us-east-2
