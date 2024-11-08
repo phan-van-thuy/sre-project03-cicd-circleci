@@ -57,6 +57,47 @@ commands:
               echo "Skipping S3 bucket destruction due to previous failures."
             fi
 jobs:
+  check-destroy-flag:
+    docker:
+      - image: circleci/python:3.8
+    steps:
+      - checkout
+      - run:
+          name: Check for Destroy Keyword in Commit Message
+          command: |
+            COMMIT_MSG=$(git log -1 --pretty=%B)
+            if echo "$COMMIT_MSG" | grep -iq "destroy"; then
+              echo "export DESTROY_FLAG=true" >> $BASH_ENV
+            else
+              echo "export DESTROY_FLAG=false" >> $BASH_ENV
+  destroy-infrastructure:
+    docker:
+      - image: hashicorp/terraform:light
+    steps:
+      - checkout
+      - run:
+          name: Destroy Infrastructure
+          command: |
+            export TF_BUCKET="udacity-tf-tscotto-us-east"
+            echo "TF_BUCKET=$TF_BUCKET" >> $BASH_ENV
+
+            # Delete IAM service account
+            eksctl delete iamserviceaccount --name cluster-autoscaler --namespace kube-system --cluster udacity-cluster --region us-east-2
+
+            # Initialize Terraform and destroy resources
+            cd starter/infra
+            terraform init -backend-config="bucket=${TF_BUCKET}" -migrate-state
+
+            if terraform destroy -var="bucket_name=${TF_BUCKET}" -auto-approve; then
+                echo "Terraform destroy completed successfully."
+                echo "Destroy S3 Bucket ..."
+                aws s3 rm "s3://${TF_BUCKET}" --recursive
+                echo "Destroy S3 Bucket successfully"
+              else
+                echo "Terraform destroy S3 failed."
+              fi
+
+
   build-s3:
     docker:
       - image: amazon/aws-cli
@@ -204,14 +245,23 @@ jobs:
 workflows:
   default:
     jobs:
-      - build-s3
+      - check-destroy-flag
+      - destroy-infrastructure:
+          requires:
+            - check-destroy-flag
+          filters:
+            branches:
+              ignore: /.*/
+          when: << pipeline.parameters.should_destroy >>
+      - build-s3:
+          requires: [check-destroy-flag]
+          when: << pipeline.parameters.should_not_destroy >>
       - deploy-infrastructure:
-          requires: [build-s3]
+          requires: [check-destroy-flag, build-s3]
+          when: << pipeline.parameters.should_not_destroy >>
       - config-infrastructure:
-          requires: [build-s3, deploy-infrastructure]
+          requires: [check-destroy-flag, build-s3, deploy-infrastructure]
+          when: << pipeline.parameters.should_not_destroy >>
       - deploy-app:
-          requires: [build-s3, deploy-infrastructure, config-infrastructure]
-          # filters:
-          #   branches:
-          #     only: 
-          #       - master
+          requires: [check-destroy-flag, build-s3, deploy-infrastructure, config-infrastructure]
+          when: << pipeline.parameters.should_not_destroy >>
